@@ -70,11 +70,15 @@ export default (env, { mode }, dev = mode === "development") => ({
       Buffer: ["buffer", "Buffer"],
     }),
     // https://webpack.js.org/plugins/copy-webpack-plugin/
-    // new (require("copy-webpack-plugin"))({
-    //   patterns: [
-    //     { from: require.resolve("./src/manifest.json"),       },
-    //   ],
-    // }),
+    new (require("copy-webpack-plugin"))({
+      patterns: [
+        {
+          context: path.resolve(__dirname, "./src/assets"),
+          from: "*.png",
+          to: "assets",
+        },
+      ],
+    }),
     // https://github.com/jantimon/favicons-webpack-plugin#basic
     new (require("favicons-webpack-plugin"))({
       logo: require.resolve("./src/assets/favicon.ico"),
@@ -87,6 +91,33 @@ export default (env, { mode }, dev = mode === "development") => ({
     new (require("html-webpack-plugin"))({
       excludeChunks: ["sw"],
       // favicon: require.resolve("./src/assets/favicon.ico"),
+    }),
+    new (require("html-webpack-plugin"))({
+      chunks: [],
+      filename: "offline.html",
+      inject: false,
+      templateContent: ({ htmlWebpackPlugin }) => `<html>
+  <head>
+    ${htmlWebpackPlugin.tags.headTags}
+  </head>
+  <body>
+    <h1>Offline</h1>
+    ${htmlWebpackPlugin.tags.bodyTags}
+  </body>
+</html>
+`,
+    }),
+    // https://web.dev/robots-txt/
+    new (require("html-webpack-plugin"))({
+      chunks: [],
+      filename: "robots.txt",
+      inject: false,
+      templateContent: ({
+        htmlWebpackPlugin,
+      }) => `# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Disallow: /downloads/
+`,
     }),
     // !dev &&
     //   new (require("workbox-webpack-plugin").InjectManifest)({
