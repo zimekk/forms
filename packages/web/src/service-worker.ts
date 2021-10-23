@@ -94,25 +94,30 @@ self.addEventListener("activate", function (event) {
 const CACHE_NAME = "cache-v1";
 const OFFLINE_URL = "offline.html";
 
-async function cacheAssets() {
-  // return caches.open(CACHE_NAME).then((cache) => console.log({ cache }) || cache.add(new Request(OFFLINE_URL, { cache: "reload" })));
-  try {
-    const cache = await caches.open(CACHE_NAME);
-    console.log(["cacheAssets"], { cache });
-    await cache.add(new Request(OFFLINE_URL, { cache: "reload" }));
-    await cache.add(new Request("assets/manifest.json", { cache: "reload" }));
-    await cache.add(new Request("assets/favicon.ico", { cache: "reload" }));
-  } catch (error) {
-    console.error({ error });
-    if (error.name === "QuotaExceededError") {
-      // Fallback code goes here
-    }
-  }
-}
+// async function cacheAssets() {
+//   // return caches.open(CACHE_NAME).then((cache) => console.log({ cache }) || cache.add(new Request(OFFLINE_URL, { cache: "reload" })));
+//   try {
+//     const cache = await caches.open(CACHE_NAME);
+//     console.log(["cacheAssets"], { cache });
+//     await cache.add(new Request(OFFLINE_URL, { cache: "reload" }));
+//     await cache.add(new Request("assets/manifest.json", { cache: "reload" }));
+//     await cache.add(new Request("assets/favicon.ico", { cache: "reload" }));
+//   } catch (error) {
+//     console.error({ error });
+//     if (error.name === "QuotaExceededError") {
+//       // Fallback code goes here
+//     }
+//   }
+// }
+
+const CONTENTS = [OFFLINE_URL, "assets/manifest.json", "assets/favicon.ico"];
 
 self.addEventListener("install", function (event) {
   console.log(["install"], { event });
-  event.waitUntil(cacheAssets());
+  // event.waitUntil(cacheAssets());
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(CONTENTS))
+  );
   self.skipWaiting();
 });
 
@@ -123,17 +128,23 @@ self.addEventListener("fetch", function (event) {
     return;
   }
 
+  // event.respondWith(
+  //   (async () => {
+  //     try {
+  //       const networkResponse = await fetch(event.request);
+  //       return networkResponse;
+  //     } catch (error) {
+  //       const cache = await caches.open(CACHE_NAME);
+  //       const cachedResponse = await cache.match(OFFLINE_URL);
+  //       return cachedResponse;
+  //     }
+  //   })()
+  // );
+
   event.respondWith(
-    (async () => {
-      try {
-        const networkResponse = await fetch(event.request);
-        return networkResponse;
-      } catch (error) {
-        const cache = await caches.open(CACHE_NAME);
-        const cachedResponse = await cache.match(OFFLINE_URL);
-        return cachedResponse;
-      }
-    })()
+    fetch(event.request).catch(() =>
+      caches.open(CACHE_NAME).then((cache) => cache.match(event.request))
+    )
   );
 
   // event.respondWith(
