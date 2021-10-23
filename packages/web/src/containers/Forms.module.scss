@@ -1,3 +1,15 @@
 .Section {
   color: blue;
 }
+.Form {
+  &.invalid {
+    fieldset {
+      border-color: red;
+    }
+  }
+}
+.Field {
+  &.invalid {
+    color: red;
+  }
+}
