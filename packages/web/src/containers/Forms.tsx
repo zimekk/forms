@@ -1,73 +1,31 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { useMutation } from "graphql-hooks";
 import cx from "classnames";
+import { Step, Action } from "../constants";
 import styles from "./Forms.module.scss";
 
-enum Step {
-  Step1 = "STEP_1",
-  Step2 = "STEP_2",
-  Step3 = "STEP_3",
-}
-
-enum Action {
-  Init = "INIT",
-  Submit = "SUBMIT",
-  Next = "NEXT",
-  Back = "BACK",
-  Logout = "LOGOUT",
-}
-
-const flow = ({
-  step = Step.Step1,
-  action = Action.Init,
-  ...data
-}: { step?: Step; action?: Action } = {}) =>
-  ({
-    [Step.Step1]: {
-      [Action.Init]: () => ({
-        step: Step.Step1,
-        username: "",
-      }),
-      [Action.Next]: ({ username }) =>
+const LOGIN_FLOW_MUTATION = `mutation LoginFlow($step: String,$action: String,
+  $loginStep1Input: LoginStep1Input, $loginStep2Input: LoginStep2Input) {
+  loginFlow(step: $step,action: $action,loginStep1Input:$loginStep1Input,loginStep2Input:$loginStep2Input) {
+    __typename
+    step
+    ... on LoginStep1 {
+      username
+      errors {
         username
-          ? {
-              step: Step.Step2,
-              password: "",
-            }
-          : {
-              step,
-              username,
-              errors: {
-                username: "Required!",
-              },
-            },
-    },
-    [Step.Step2]: {
-      [Action.Back]: () => ({
-        step: Step.Step1,
-        username: "",
-      }),
-      [Action.Next]: ({ password }) =>
+      }
+    }
+    ... on LoginStep2 {
+      password
+      errors {
         password
-          ? {
-              step: Step.Step3,
-            }
-          : {
-              step,
-              password,
-              errors: {
-                password: "Required!",
-              },
-            },
-    },
-    [Step.Step3]: {
-      [Action.Logout]: () => ({
-        step: Step.Step1,
-        username: "",
-      }),
-    },
-  }[step][action](data));
+      }
+    }
+  }
+}`;
 
 export default function Section() {
+  const [flow] = useMutation(LOGIN_FLOW_MUTATION);
   const [data, setData] = useState({});
 
   const handleChange = useCallback(
@@ -91,31 +49,49 @@ export default function Section() {
   );
   const handleSubmit = useCallback(
     (event) =>
-      Promise.resolve(
-        event.preventDefault() || event
-        // Object.fromEntries(new FormData(event.target))
-      )
-        .then(
-          ({
-            target: { name: step },
-            nativeEvent: {
-              submitter: { value: action },
-            },
-          }) =>
-            Boolean(console.log(["handleSubmit"], { step, action })) ||
-            new Promise((resolve) =>
-              setTimeout(resolve, 200, flow({ ...data[step], step, action }))
-            )
-        )
-        .then(({ step, ...update }) => setData(() => ({ [step]: update }))),
+      event.preventDefault() ||
+      (({
+        target: { name: step },
+        nativeEvent: {
+          submitter: { value: action },
+        },
+      }) =>
+        Boolean(console.log(["handleSubmit"], { step, action })) ||
+        flow({
+          variables: Object.assign(
+            { step, action },
+            {
+              [Step.Step1]: {
+                [Action.Next]: ({ username }) => ({
+                  loginStep1Input: { username },
+                }),
+              },
+              [Step.Step2]: {
+                [Action.Back]: () => ({}),
+                [Action.Next]: ({ password }) => ({
+                  loginStep2Input: { password },
+                }),
+              },
+              [Step.Step3]: {
+                [Action.Logout]: () => ({}),
+              },
+            }[step][action](data[step])
+          ),
+        })
+          .then(({ data }) => data.loginFlow)
+          .then(({ step, ...update }) => setData(() => ({ [step]: update }))))(
+        event
+      ),
     [data]
   );
 
-  useEffect(() => {
-    new Promise((resolve) => setTimeout(resolve, 200, flow())).then(
-      ({ step, ...update }) => setData(() => ({ [step]: update }))
-    );
-  }, []);
+  useEffect(
+    () =>
+      flow()
+        .then(({ data }) => data.loginFlow)
+        .then(({ step, ...update }) => setData(() => ({ [step]: update }))),
+    []
+  );
 
   return (
     <section className={styles.Section}>
@@ -174,15 +150,7 @@ export default function Section() {
                 <input
                   name="password"
                   value={data[Step.Step2].password}
-                  onChange={(e) =>
-                    setData((data) => ({
-                      ...data,
-                      [Step.Step2]: {
-                        ...data[Step.Step2],
-                        password: e.target.value,
-                      },
-                    }))
-                  }
+                  onChange={handleChange}
                   autoFocus
                 />
                 {data[Step.Step2].errors?.password && (

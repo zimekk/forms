@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useEffect, useState } from "react";
+import { GraphQLClient, ClientContext } from "graphql-hooks";
 import { hot } from "react-hot-loader/root";
 import history from "history/browser";
 import styles from "./App.module.scss";
@@ -15,6 +16,10 @@ const getPage = (location: { hash: string }) => {
   return hash;
 };
 
+const client = new GraphQLClient({
+  url: "/graphql",
+});
+
 function App() {
   const [page, setPage] = useState(getPage(history.location));
 
@@ -26,20 +31,22 @@ function App() {
   const Page = PAGES[page] || null;
 
   return (
-    <section className={styles.App}>
-      <h1 className={styles.Nav}>
-        Forms
-        {Object.keys(PAGES).map((page) => (
-          <a key={page} href={`#${page}`}>
-            {page}
-          </a>
-        ))}
-        [{page}]
-      </h1>
-      <Suspense fallback={<Spinner />}>
-        <Page />
-      </Suspense>
-    </section>
+    <ClientContext.Provider value={client}>
+      <section className={styles.App}>
+        <h1 className={styles.Nav}>
+          Forms
+          {Object.keys(PAGES).map((page) => (
+            <a key={page} href={`#${page}`}>
+              {page}
+            </a>
+          ))}
+          [{page}]
+        </h1>
+        <Suspense fallback={<Spinner />}>
+          <Page />
+        </Suspense>
+      </section>
+    </ClientContext.Provider>
   );
 }
 

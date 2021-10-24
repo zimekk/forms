@@ -1,8 +1,16 @@
 import path from "path";
-import express, { Router, json } from "express";
+import express, { Router } from "express";
+import { graphqlHTTP } from "express-graphql";
 
 export const router = Router()
   .use("/api", (req, res) => res.json({ hello: "Hello" }))
+  .use(
+    "/graphql",
+    graphqlHTTP({
+      graphiql: true,
+      schema: require("./schema").default,
+    })
+  )
   .use(require("./push").default());
 
 class Server {
