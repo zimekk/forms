@@ -1,5 +1,5 @@
 import { mergeSchemas } from "@graphql-tools/schema";
-import { Step, Action } from "@dev/web/constants";
+import { Step, Action } from "../constants";
 
 export default mergeSchemas({
   typeDefs: `
@@ -7,7 +7,7 @@ export default mergeSchemas({
       step: String
     }
 
-    interface LoginFlow {
+    interface LoginFlow implements Form {
       step: String
     }
 
@@ -15,7 +15,7 @@ export default mergeSchemas({
       username: String
     }
 
-    type LoginStep1 implements LoginFlow {
+    type LoginStep1 implements LoginFlow & Form {
       step: String
       username: String
       errors: LoginStep1Errors
@@ -29,7 +29,7 @@ export default mergeSchemas({
       password: String
     }
 
-    type LoginStep2 implements LoginFlow {
+    type LoginStep2 implements LoginFlow & Form {
       step: String
       password: String
       errors: LoginStep2Errors
@@ -39,7 +39,7 @@ export default mergeSchemas({
       password: String
     }
 
-    type LoginStep3 implements LoginFlow {
+    type LoginStep3 implements LoginFlow & Form {
       step: String
     }
 
@@ -114,6 +114,7 @@ export default mergeSchemas({
               username: "",
             }),
           },
+          // @ts-ignore
         }[step][action](data),
     },
   },

@@ -9,7 +9,7 @@ export default mergeSchemas({
   `,
   resolvers: {
     Query: {
-      hello: () => "FOO",
+      hello: () => "Hello World!",
     },
   },
 });

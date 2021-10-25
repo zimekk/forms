@@ -8,7 +8,7 @@ export const router = Router()
     "/graphql",
     graphqlHTTP({
       graphiql: true,
-      schema: require("./schema").default,
+      schema: require("@dev/web/schema").default,
     })
   )
   .use(require("./push").default());

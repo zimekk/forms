@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 // https://github.com/jakearchibald/idb#using-npm
 import { openDB, DBSchema } from "idb";
+import { graphql } from "graphql";
 
 // https://stackoverflow.com/questions/63116331/how-to-migrate-service-worker-from-js-to-ts
 /* eslint-disable no-redeclare */
@@ -124,7 +125,32 @@ self.addEventListener("install", function (event) {
 self.addEventListener("fetch", function (event) {
   console.log(["fetch"], { event });
 
-  if (event.request.mode !== "navigate") {
+  // https://github.com/stutrek/apollo-server-service-worker/blob/master/src/serviceWorkerApollo.ts
+  const url = new URL(event.request.url);
+
+  if (url.pathname == "/graphql") {
+    event.respondWith(
+      event.request.json().then(
+        (data) =>
+          new Promise((resolve) => {
+            const { query, variables } = data;
+
+            console.log({ query, variables });
+
+            // https://github.com/graphql/graphql-js#using-graphqljs
+            graphql(require("./schema").default, query, {}, {}, variables)
+              .then((result) => {
+                const response = new Response(JSON.stringify(result));
+                response.headers.set(
+                  "Content-Type",
+                  "application/json; charset=utf-8"
+                );
+                resolve(response);
+              })
+              .catch(console.error);
+          })
+      )
+    );
     return;
   }
 

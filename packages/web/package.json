@@ -15,9 +15,11 @@
     "start": "webpack serve --mode development"
   },
   "dependencies": {
+    "@graphql-tools/schema": "^8.3.0",
     "buffer": "^6.0.3",
     "classnames": "^2.3.1",
     "events": "^3.3.0",
+    "graphql": "^15.6.1",
     "graphql-hooks": "^5.4.1",
     "history": "^5.0.1",
     "hoist-non-react-statics": "^3.3.2",
