@@ -1,6 +1,10 @@
 import { mergeSchemas } from "@graphql-tools/schema";
 import { Step, Action } from "../constants";
 
+import * as yup from "yup";
+import joi from "joi";
+import { z } from "zod";
+
 export default mergeSchemas({
   typeDefs: `
     interface Form {
@@ -76,8 +80,42 @@ export default mergeSchemas({
               step: Step.Step1,
               username: "",
             }),
-            [Action.Next]: ({ loginStep1Input: { username } }) =>
-              username
+            [Action.Next]: ({ loginStep1Input: { username } }) => {
+              const data = { username, fields: {} };
+              console.log({ data });
+
+              const joiSchema = joi.object({
+                username: joi.string().min(1).max(3).required(),
+                fields: joi.object({
+                  password: joi.string().min(1).max(3).required(),
+                }),
+              });
+              console.log("--", { joiSchema });
+              console.error(joiSchema.validate(data));
+
+              const yupSchema = yup.object().shape({
+                username: yup.string().min(1).max(3).required(),
+                fields: yup.object().shape({
+                  password: yup.string().min(1).max(3).required(),
+                }),
+              });
+              console.log("--", { yupSchema });
+              yupSchema.validate(data).catch(console.error);
+
+              const schema = z.object({
+                username: z.string().min(1).max(3),
+                fields: z.object({
+                  password: z.string().min(1).max(3),
+                }),
+              });
+              console.log("--", { schema });
+              try {
+                schema.parse(data);
+              } catch (error) {
+                console.error(error);
+              }
+
+              return username
                 ? {
                     step: Step.Step2,
                     password: "",
@@ -88,7 +126,8 @@ export default mergeSchemas({
                     errors: {
                       username: "Required!",
                     },
-                  },
+                  };
+            },
           },
           [Step.Step2]: {
             [Action.Back]: () => ({

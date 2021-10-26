@@ -38,8 +38,10 @@ const config = (env, { mode }, dev = mode === "development") => ({
   },
   externalsPresets: { node: true },
   externals: [
+    // https://github.com/liady/webpack-node-externals#configuration
     require("webpack-node-externals")({
       additionalModuleDirs: ["../../node_modules"],
+      allowlist: [/^@dev\//],
     }),
   ],
   module: {

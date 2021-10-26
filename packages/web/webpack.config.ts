@@ -10,7 +10,7 @@ export default (env, { mode }, dev = mode === "development") => ({
   entry: {
     main: require.resolve("./src"),
     // : require.resolve("./src"),
-    sw: require.resolve("./src/service-worker"),
+    // sw: require.resolve("./src/service-worker"),
   },
   module: {
     rules: [
