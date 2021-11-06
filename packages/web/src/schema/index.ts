@@ -1,7 +1,7 @@
 import { mergeSchemas } from "@graphql-tools/schema";
 
 export default mergeSchemas({
-  schemas: [require("./loginFlow").default],
+  schemas: [require("./signin").default],
   typeDefs: `
     type Query {
       hello: String

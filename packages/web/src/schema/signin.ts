@@ -1,12 +1,10 @@
 import { mergeSchemas } from "@graphql-tools/schema";
-import { Step, Action } from "../constants";
+import { Step, Action, gql } from "../constants";
 
-import * as yup from "yup";
-import joi from "joi";
 import { z } from "zod";
 
 export default mergeSchemas({
-  typeDefs: `
+  typeDefs: gql`
     interface Form {
       step: String
     }
@@ -48,24 +46,26 @@ export default mergeSchemas({
     }
 
     type Mutation {
-      loginFlow(step: String, action: String, loginStep1Input: LoginStep1Input, loginStep2Input: LoginStep2Input): LoginFlow
+      signin(
+        step: String
+        action: String
+        step1: LoginStep1Input
+        step2: LoginStep2Input
+      ): LoginFlow
     }
   `,
   resolvers: {
     LoginFlow: {
       __resolveType({ step }) {
-        console.log(["__resolveType"], { step });
-        return (
-          {
-            [Step.Step1]: "LoginStep1",
-            [Step.Step2]: "LoginStep2",
-            [Step.Step3]: "LoginStep3",
-          }[step] || null
-        );
+        return {
+          [Step.Step1]: "LoginStep1",
+          [Step.Step2]: "LoginStep2",
+          [Step.Step3]: "LoginStep3",
+        }[step];
       },
     },
     Mutation: {
-      loginFlow: (
+      signin: (
         _,
         {
           step = Step.Step1,
@@ -80,27 +80,9 @@ export default mergeSchemas({
               step: Step.Step1,
               username: "",
             }),
-            [Action.Next]: ({ loginStep1Input: { username } }) => {
+            [Action.Next]: ({ step1: { username } }) => {
               const data = { username, fields: {} };
               console.log({ data });
-
-              const joiSchema = joi.object({
-                username: joi.string().min(1).max(3).required(),
-                fields: joi.object({
-                  password: joi.string().min(1).max(3).required(),
-                }),
-              });
-              console.log("--", { joiSchema });
-              console.error(joiSchema.validate(data));
-
-              const yupSchema = yup.object().shape({
-                username: yup.string().min(1).max(3).required(),
-                fields: yup.object().shape({
-                  password: yup.string().min(1).max(3).required(),
-                }),
-              });
-              console.log("--", { yupSchema });
-              yupSchema.validate(data).catch(console.error);
 
               const schema = z.object({
                 username: z.string().min(1).max(3),
@@ -134,7 +116,7 @@ export default mergeSchemas({
               step: Step.Step1,
               username: "",
             }),
-            [Action.Next]: ({ loginStep2Input: { password } }) =>
+            [Action.Next]: ({ step2: { password } }) =>
               password
                 ? {
                     step: Step.Step3,

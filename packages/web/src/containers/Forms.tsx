@@ -1,32 +1,66 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation } from "graphql-hooks";
-import cx from "classnames";
-import { Step, Action } from "../constants";
+import { Subject, from } from "rxjs";
+import { delay, mergeMap } from "rxjs/operators";
+import {
+  Button,
+  Errors,
+  Field,
+  Fieldset,
+  Form,
+  Input,
+  Label,
+  Legend,
+} from "../components";
+import { Step, Action, gql } from "../constants";
 import styles from "./Forms.module.scss";
 
-const LOGIN_FLOW_MUTATION = `mutation LoginFlow($step: String,$action: String,
-  $loginStep1Input: LoginStep1Input, $loginStep2Input: LoginStep2Input) {
-  loginFlow(step: $step,action: $action,loginStep1Input:$loginStep1Input,loginStep2Input:$loginStep2Input) {
-    __typename
-    step
-    ... on LoginStep1 {
-      username
-      errors {
+const SIGNIN_MUTATION = gql`
+  mutation Signin(
+    $step: String
+    $action: String
+    $step1: LoginStep1Input
+    $step2: LoginStep2Input
+  ) {
+    signin(step: $step, action: $action, step1: $step1, step2: $step2) {
+      __typename
+      step
+      ... on LoginStep1 {
         username
+        errors {
+          username
+        }
       }
-    }
-    ... on LoginStep2 {
-      password
-      errors {
+      ... on LoginStep2 {
         password
+        errors {
+          password
+        }
       }
     }
   }
-}`;
+`;
 
-export default function Section() {
-  const [flow] = useMutation(LOGIN_FLOW_MUTATION);
-  const [data, setData] = useState({});
+function useForm(mutate, update, submit) {
+  const [data, setData] = useState(() => ({}));
+
+  const mutate$ = useMemo(() => new Subject(), []);
+  useEffect(() => {
+    const subscription = mutate$
+      .pipe(
+        delay(500),
+        mergeMap((data) => from(mutate(data))),
+        delay(500)
+      )
+      .subscribe(
+        (mutate) =>
+          Boolean(console.log({ mutate })) || setData(update(mutate.data))
+      );
+
+    mutate$.next({});
+
+    return () => subscription.unsubscribe();
+  }, [mutate$]);
 
   const handleChange = useCallback(
     (event) =>
@@ -47,6 +81,7 @@ export default function Section() {
         })))(event),
     []
   );
+
   const handleSubmit = useCallback(
     (event) =>
       event.preventDefault() ||
@@ -57,143 +92,95 @@ export default function Section() {
         },
       }) =>
         Boolean(console.log(["handleSubmit"], { step, action })) ||
-        flow({
-          variables: Object.assign(
-            { step, action },
-            {
-              [Step.Step1]: {
-                [Action.Next]: ({ username }) => ({
-                  loginStep1Input: { username },
-                }),
-              },
-              [Step.Step2]: {
-                [Action.Back]: () => ({}),
-                [Action.Next]: ({ password }) => ({
-                  loginStep2Input: { password },
-                }),
-              },
-              [Step.Step3]: {
-                [Action.Logout]: () => ({}),
-              },
-            }[step][action](data[step])
-          ),
-        })
-          .then(({ data }) => data.loginFlow)
-          .then(({ step, ...update }) => setData(() => ({ [step]: update }))))(
-        event
-      ),
+        mutate$.next(submit(step, action, data)))(event),
     [data]
   );
 
-  useEffect(
-    () =>
-      flow()
-        .then(({ data }) => data.loginFlow)
-        .then(({ step, ...update }) => setData(() => ({ [step]: update }))),
-    []
+  return [data, handleChange, handleSubmit];
+}
+
+export default function Section() {
+  const [mutate] = useMutation(SIGNIN_MUTATION);
+  const [data, handleChange, handleSubmit] = useForm(
+    mutate,
+    ({ signin }) =>
+      (data) => ({ ...data, [signin.step]: signin }),
+    (step, action, data) => ({
+      variables: Object.assign(
+        { step, action },
+        {
+          [Step.Step1]: {
+            [Action.Next]: ({ username }) => ({
+              step1: { username },
+            }),
+          },
+          [Step.Step2]: {
+            [Action.Back]: () => ({}),
+            [Action.Next]: ({ password }) => ({
+              step2: { password },
+            }),
+          },
+          [Step.Step3]: {
+            [Action.Logout]: () => ({}),
+          },
+        }[step][action](data[step])
+      ),
+    })
   );
 
   return (
     <section className={styles.Section}>
       <h2>Forms</h2>
       {data[Step.Step1] && (
-        <form
-          className={cx(styles.Form, data[Step.Step1].errors && styles.invalid)}
+        <Form
           name={Step.Step1}
+          onChange={handleChange}
           onSubmit={handleSubmit}
+          // data[Step.Step1].errors && styles.invalid
         >
-          <fieldset>
-            <legend>Step1</legend>
-            <div>
-              <label
-                className={cx(
-                  styles.Field,
-                  data[Step.Step1].errors?.username && styles.invalid
-                )}
-              >
-                <span>Username</span>
-                <input
-                  name="username"
-                  value={data[Step.Step1].username}
-                  onChange={handleChange}
-                  autoFocus
-                />
-                {data[Step.Step1].errors?.username && (
-                  <span>{data[Step.Step1].errors.username}</span>
-                )}
-              </label>
-            </div>
-            <div>
-              <button type="submit" name="action" value={Action.Next}>
-                Next
-              </button>
-            </div>
-          </fieldset>
-        </form>
+          <Fieldset>
+            <Legend>Step1</Legend>
+            <Field name="username">
+              <Label>Username</Label>
+              <Input autoFocus />
+            </Field>
+            <Errors />
+            <Button value={Action.Next}>Next</Button>
+          </Fieldset>
+        </Form>
       )}
       {data[Step.Step2] && (
-        <form
-          className={cx(styles.Form, data[Step.Step2].errors && styles.invalid)}
-          name={Step.Step2}
-          onSubmit={handleSubmit}
-        >
-          <fieldset>
-            <legend>Step2</legend>
-            <div>
-              <label
-                className={cx(
-                  styles.Field,
-                  data[Step.Step2].errors?.password && styles.invalid
-                )}
-              >
-                <span>Password</span>
-                <input
-                  name="password"
-                  value={data[Step.Step2].password}
-                  onChange={handleChange}
-                  autoFocus
-                />
-                {data[Step.Step2].errors?.password && (
-                  <span>{data[Step.Step2].errors.password}</span>
-                )}
-              </label>
-            </div>
-            <div>
-              <button type="submit" name="action" value={Action.Next}>
-                Next
-              </button>
-              <button type="submit" name="action" value={Action.Back}>
-                Back
-              </button>
-            </div>
-          </fieldset>
-        </form>
+        <Form name={Step.Step2} onChange={handleChange} onSubmit={handleSubmit}>
+          <Fieldset>
+            <Legend>Step2</Legend>
+            <Field name="password">
+              <Label>Password</Label>
+              <Input autoFocus />
+            </Field>
+            <Errors />
+            <Button value={Action.Next}>Next</Button>
+            <Button value={Action.Back}>Back</Button>
+          </Fieldset>
+        </Form>
       )}
       {data[Step.Step3] && (
-        <form
-          className={cx(styles.Form, data[Step.Step3].errors && styles.invalid)}
+        <Form
           name={Step.Step3}
+          onChange={handleChange}
           onSubmit={handleSubmit}
+          // data[Step.Step3].errors && styles.invalid)}
         >
-          <fieldset>
-            <legend>Step3</legend>
-            <div>
-              <label>
-                <span>LoggedIn</span>
-              </label>
-            </div>
-            <div>
-              <button
-                type="submit"
-                name="action"
-                value={Action.Logout}
-                autoFocus
-              >
-                Logout
-              </button>
-            </div>
-          </fieldset>
-        </form>
+          <Fieldset>
+            <Legend>Step3</Legend>
+            <Field name="password">
+              <Label>LoggedIn</Label>
+            </Field>
+            <Errors />
+            <Button value={Action.Logout} autoFocus>
+              Logout
+            </Button>
+          </Fieldset>
+        </Form>
       )}
     </section>
   );

@@ -10,3 +10,5 @@ export enum Action {
   Back = "BACK",
   Logout = "LOGOUT",
 }
+
+export const gql = (q) => q.join();

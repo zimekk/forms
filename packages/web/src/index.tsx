@@ -34,17 +34,17 @@ if ("serviceWorker" in navigator) {
   // window.addEventListener("offline", (event) => {
   //   console.log(["offline"], event);
   // });
-  window.addEventListener("load", (event) => {
-    console.log(["load"], event);
-    navigator.serviceWorker
-      .register("sw.js")
-      .then((registration) => {
-        console.log("SW registered: ", registration);
-      })
-      .catch((registrationError) => {
-        console.log("SW registration failed: ", registrationError);
-      });
-  });
+  // window.addEventListener("load", (event) => {
+  //   console.log(["load"], event);
+  //   navigator.serviceWorker
+  //     .register("sw.js")
+  //     .then((registration) => {
+  //       console.log("SW registered: ", registration);
+  //     })
+  //     .catch((registrationError) => {
+  //       console.log("SW registration failed: ", registrationError);
+  //     });
+  // });
 }
 
 // const { connection, serviceWorker } = navigator;
