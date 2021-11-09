@@ -14,7 +14,6 @@ import {
 } from "../components";
 import { View, Action, gql } from "../constants";
 import styles from "./Forms.module.scss";
-import { object } from "zod";
 
 const SIGNIN_MUTATION = gql`
   mutation Signin(
@@ -29,7 +28,9 @@ const SIGNIN_MUTATION = gql`
       ... on Form {
         view
         errors {
-          id
+          code
+          message
+          path
         }
       }
       ... on LoginStep1 {
@@ -103,7 +104,7 @@ function useForm(mutate, update, submit) {
   return [
     data,
     () => ({
-      form: data.form,
+      data,
       handleChange,
       handleSubmit,
     }),
@@ -161,8 +162,8 @@ export default function Section() {
                 <Field name="username">
                   <Label>Username</Label>
                   <Input autoFocus />
+                  <Errors />
                 </Field>
-                <Errors />
                 <Button value={Action.Next}>Next</Button>
               </Fieldset>
             </Form>
@@ -174,8 +175,8 @@ export default function Section() {
                 <Field name="password">
                   <Label>Password</Label>
                   <Input autoFocus />
+                  <Errors />
                 </Field>
-                <Errors />
                 <Button value={Action.Next}>Next</Button>
                 <Button value={Action.Back}>Back</Button>
               </Fieldset>
@@ -185,10 +186,6 @@ export default function Section() {
             <Form {...handleForm()}>
               <Fieldset>
                 <Legend>Step3</Legend>
-                <Field name="password">
-                  <Label>LoggedIn</Label>
-                </Field>
-                <Errors />
                 <Button value={Action.Logout} autoFocus>
                   Logout
                 </Button>

@@ -22,7 +22,9 @@ export default mergeSchemas({
     }
 
     type Error {
-      id: String
+      code: String
+      message: String
+      path: [String]
     }
 
     type LoginStep1 implements LoginFlow & Form {
@@ -166,7 +168,15 @@ export default mergeSchemas({
                   },
                 })
               )
-              .then(() => ({ flow, view, errors, ...form }))
+              .then(
+                () =>
+                  Boolean(console.log({ flow, view, form, errors })) || {
+                    flow,
+                    view,
+                    errors,
+                    ...form,
+                  }
+              )
           )
         ),
     },

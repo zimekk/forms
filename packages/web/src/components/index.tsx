@@ -1,11 +1,11 @@
-import React, { createContext, useContext } from "react";
+import React, { createContext, useContext, useMemo } from "react";
 import cx from "classnames";
 import styles from "./styles.module.scss";
 
 const FormContext = createContext({});
 
 export function Form({
-  form,
+  data,
   handleChange,
   handleSubmit,
   ...props
@@ -13,7 +13,7 @@ export function Form({
   children: any;
 }) {
   return (
-    <FormContext.Provider value={{ form, handleChange }}>
+    <FormContext.Provider value={{ ...data, handleChange }}>
       <form
         onSubmit={handleSubmit}
         {...props}
@@ -35,8 +35,18 @@ export function Legend({ ...props }) {
 const FieldContext = createContext({});
 
 export function Field({ name, ...props }: { children: any; name: string }) {
+  const { errors } = useContext(FormContext);
+
   return (
-    <FieldContext.Provider value={{ name }}>
+    <FieldContext.Provider
+      value={{
+        name,
+        errors: useMemo(
+          () => (errors || []).filter(({ path }) => path.join(".") === name),
+          [errors]
+        ),
+      }}
+    >
       <div {...props} />
     </FieldContext.Provider>
   );
@@ -66,12 +76,16 @@ export function Input({ ...props }) {
   );
 }
 
-export function Errors({ ...props }: { name: string }) {
-  return (
-    <div>
-      <span {...props} />
-    </div>
-  );
+export function Errors({ ...props }) {
+  const { errors } = useContext(FieldContext);
+
+  return errors ? (
+    <ul className={styles.Errors}>
+      {errors.map(({ message }, key) => (
+        <li key={key}>{message}</li>
+      ))}
+    </ul>
+  ) : null;
 }
 
 export function Button({ ...props }: { children: any; value: string }) {
