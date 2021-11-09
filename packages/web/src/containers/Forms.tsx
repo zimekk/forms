@@ -12,37 +12,41 @@ import {
   Label,
   Legend,
 } from "../components";
-import { Step, Action, gql } from "../constants";
+import { View, Action, gql } from "../constants";
 import styles from "./Forms.module.scss";
+import { object } from "zod";
 
 const SIGNIN_MUTATION = gql`
   mutation Signin(
-    $step: String
-    $action: String
+    $flow: Flow
+    $action: Action
     $step1: LoginStep1Input
     $step2: LoginStep2Input
   ) {
-    signin(step: $step, action: $action, step1: $step1, step2: $step2) {
+    signin(flow: $flow, action: $action, step1: $step1, step2: $step2) {
       __typename
-      step
+      flow
+      ... on Form {
+        view
+        errors {
+          id
+        }
+      }
       ... on LoginStep1 {
         username
-        errors {
-          username
-        }
       }
       ... on LoginStep2 {
         password
-        errors {
-          password
-        }
       }
     }
   }
 `;
 
 function useForm(mutate, update, submit) {
-  const [data, setData] = useState(() => ({}));
+  const [data, setData] = useState(() => ({
+    form: {},
+    view: null,
+  }));
 
   const mutate$ = useMemo(() => new Subject(), []);
   useEffect(() => {
@@ -66,16 +70,16 @@ function useForm(mutate, update, submit) {
     (event) =>
       (({
         target: {
-          form: { name: step },
+          // form: { name },
           name,
           value,
         },
       }) =>
-        Boolean(console.log(["handleChange"], { step, name, value })) ||
+        Boolean(console.log(["handleChange"], { name, value })) ||
         setData((data) => ({
           ...data,
-          [step]: {
-            ...data[step],
+          form: {
+            ...data.form,
             [name]: value,
           },
         })))(event),
@@ -86,102 +90,112 @@ function useForm(mutate, update, submit) {
     (event) =>
       event.preventDefault() ||
       (({
-        target: { name: step },
+        // target: { name },
         nativeEvent: {
           submitter: { value: action },
         },
       }) =>
-        Boolean(console.log(["handleSubmit"], { step, action })) ||
-        mutate$.next(submit(step, action, data)))(event),
+        Boolean(console.log(["handleSubmit"], { action })) ||
+        mutate$.next(submit(action, data)))(event),
     [data]
   );
 
-  return [data, handleChange, handleSubmit];
+  return [
+    data,
+    () => ({
+      form: data.form,
+      handleChange,
+      handleSubmit,
+    }),
+  ];
 }
 
 export default function Section() {
   const [mutate] = useMutation(SIGNIN_MUTATION);
-  const [data, handleChange, handleSubmit] = useForm(
+  const [data, handleForm] = useForm(
     mutate,
-    ({ signin }) =>
-      (data) => ({ ...data, [signin.step]: signin }),
-    (step, action, data) => ({
-      variables: Object.assign(
-        { step, action },
-        {
-          [Step.Step1]: {
-            [Action.Next]: ({ username }) => ({
-              step1: { username },
-            }),
-          },
-          [Step.Step2]: {
-            [Action.Back]: () => ({}),
-            [Action.Next]: ({ password }) => ({
-              step2: { password },
-            }),
-          },
-          [Step.Step3]: {
-            [Action.Logout]: () => ({}),
-          },
-        }[step][action](data[step])
-      ),
-    })
+    ({ signin: { flow, view, errors, ...form } }) =>
+      (data) =>
+        console.log({ data, flow, view, errors, form }) || {
+          ...data,
+          flow,
+          view,
+          errors,
+          form: { ...data.form, ...form },
+        },
+    (action, { flow, view, form }) =>
+      console.log({ action, flow, view, form }) || {
+        variables: Object.assign(
+          { flow, action },
+          {
+            [View.Step1]: {
+              [Action.Next]: ({ username }) => ({
+                step1: { username },
+              }),
+            },
+            [View.Step2]: {
+              [Action.Back]: () => ({}),
+              [Action.Next]: ({ password }) => ({
+                step2: { password },
+              }),
+            },
+            [View.Step3]: {
+              [Action.Logout]: () => ({}),
+            },
+          }[view][action](form)
+        ),
+      }
   );
+
+  console.log({ data });
 
   return (
     <section className={styles.Section}>
       <h2>Forms</h2>
-      {data[Step.Step1] && (
-        <Form
-          name={Step.Step1}
-          onChange={handleChange}
-          onSubmit={handleSubmit}
-          // data[Step.Step1].errors && styles.invalid
-        >
-          <Fieldset>
-            <Legend>Step1</Legend>
-            <Field name="username">
-              <Label>Username</Label>
-              <Input autoFocus />
-            </Field>
-            <Errors />
-            <Button value={Action.Next}>Next</Button>
-          </Fieldset>
-        </Form>
-      )}
-      {data[Step.Step2] && (
-        <Form name={Step.Step2} onChange={handleChange} onSubmit={handleSubmit}>
-          <Fieldset>
-            <Legend>Step2</Legend>
-            <Field name="password">
-              <Label>Password</Label>
-              <Input autoFocus />
-            </Field>
-            <Errors />
-            <Button value={Action.Next}>Next</Button>
-            <Button value={Action.Back}>Back</Button>
-          </Fieldset>
-        </Form>
-      )}
-      {data[Step.Step3] && (
-        <Form
-          name={Step.Step3}
-          onChange={handleChange}
-          onSubmit={handleSubmit}
-          // data[Step.Step3].errors && styles.invalid)}
-        >
-          <Fieldset>
-            <Legend>Step3</Legend>
-            <Field name="password">
-              <Label>LoggedIn</Label>
-            </Field>
-            <Errors />
-            <Button value={Action.Logout} autoFocus>
-              Logout
-            </Button>
-          </Fieldset>
-        </Form>
-      )}
+      {data.view &&
+        {
+          [View.Step1]: () => (
+            <Form {...handleForm()}>
+              <Fieldset>
+                <Legend>Step1</Legend>
+                <Field name="username">
+                  <Label>Username</Label>
+                  <Input autoFocus />
+                </Field>
+                <Errors />
+                <Button value={Action.Next}>Next</Button>
+              </Fieldset>
+            </Form>
+          ),
+          [View.Step2]: () => (
+            <Form {...handleForm()}>
+              <Fieldset>
+                <Legend>Step2</Legend>
+                <Field name="password">
+                  <Label>Password</Label>
+                  <Input autoFocus />
+                </Field>
+                <Errors />
+                <Button value={Action.Next}>Next</Button>
+                <Button value={Action.Back}>Back</Button>
+              </Fieldset>
+            </Form>
+          ),
+          [View.Step3]: () => (
+            <Form {...handleForm()}>
+              <Fieldset>
+                <Legend>Step3</Legend>
+                <Field name="password">
+                  <Label>LoggedIn</Label>
+                </Field>
+                <Errors />
+                <Button value={Action.Logout} autoFocus>
+                  Logout
+                </Button>
+              </Fieldset>
+            </Form>
+          ),
+        }[data.view](data.form)}
     </section>
   );
 }

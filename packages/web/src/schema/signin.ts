@@ -1,40 +1,46 @@
 import { mergeSchemas } from "@graphql-tools/schema";
-import { Step, Action, gql } from "../constants";
-
+import { v4 as uuid } from "uuid";
 import { z } from "zod";
+import update from "immutability-helper";
+import { Flow, View, Action, gql } from "../constants";
+
+const storage = {};
 
 export default mergeSchemas({
   typeDefs: gql`
+    scalar Flow
+    scalar View
+    scalar Action
+
     interface Form {
-      step: String
+      view: View
+      errors: [Error]
     }
 
-    interface LoginFlow implements Form {
-      step: String
+    interface LoginFlow {
+      flow: Flow
     }
 
-    type LoginStep1Errors {
-      username: String
+    type Error {
+      id: String
     }
 
     type LoginStep1 implements LoginFlow & Form {
-      step: String
+      flow: Flow
+      view: View
+      errors: [Error]
       username: String
-      errors: LoginStep1Errors
     }
 
     input LoginStep1Input {
       username: String
     }
 
-    type LoginStep2Errors {
-      password: String
-    }
-
     type LoginStep2 implements LoginFlow & Form {
-      step: String
+      flow: Flow
+      view: View
+      errors: [Error]
       password: String
-      errors: LoginStep2Errors
     }
 
     input LoginStep2Input {
@@ -42,13 +48,15 @@ export default mergeSchemas({
     }
 
     type LoginStep3 implements LoginFlow & Form {
-      step: String
+      flow: Flow
+      view: View
+      errors: [Error]
     }
 
     type Mutation {
       signin(
-        step: String
-        action: String
+        flow: Flow
+        action: Action
         step1: LoginStep1Input
         step2: LoginStep2Input
       ): LoginFlow
@@ -56,87 +64,111 @@ export default mergeSchemas({
   `,
   resolvers: {
     LoginFlow: {
-      __resolveType({ step }) {
+      __resolveType({ view }) {
         return {
-          [Step.Step1]: "LoginStep1",
-          [Step.Step2]: "LoginStep2",
-          [Step.Step3]: "LoginStep3",
-        }[step];
+          [View.Step1]: "LoginStep1",
+          [View.Step2]: "LoginStep2",
+          [View.Step3]: "LoginStep3",
+        }[view];
       },
     },
     Mutation: {
       signin: (
         _,
         {
-          step = Step.Step1,
+          flow,
           action = Action.Init,
           ...data
-        }: { step?: Step; action?: Action } = {}
+        }: { flow?: Flow; action?: Action } = {}
       ) =>
-        Boolean(console.log(["loginFlow"], { step, action, data })) ||
-        {
-          [Step.Step1]: {
-            [Action.Init]: () => ({
-              step: Step.Step1,
-              username: "",
-            }),
-            [Action.Next]: ({ step1: { username } }) => {
-              const data = { username, fields: {} };
-              console.log({ data });
-
-              const schema = z.object({
-                username: z.string().min(1).max(3),
-                fields: z.object({
-                  password: z.string().min(1).max(3),
-                }),
-              });
-              console.log("--", { schema });
-              try {
-                schema.parse(data);
-              } catch (error) {
-                console.error(error);
+        Boolean(console.log({ storage })) ||
+        Promise.resolve(
+          flow
+            ? storage[flow.uuid]
+            : {
+                uuid: uuid(),
+                view: View.Step1,
+                form: {
+                  username: "a",
+                  password: "b",
+                },
               }
-
-              return username
-                ? {
-                    step: Step.Step2,
-                    password: "",
-                  }
-                : {
-                    step,
-                    username,
-                    errors: {
-                      username: "Required!",
-                    },
-                  };
-            },
-          },
-          [Step.Step2]: {
-            [Action.Back]: () => ({
-              step: Step.Step1,
-              username: "",
-            }),
-            [Action.Next]: ({ step2: { password } }) =>
-              password
-                ? {
-                    step: Step.Step3,
-                  }
-                : {
-                    step,
-                    password,
-                    errors: {
-                      password: "Required!",
-                    },
+        ).then(({ view, form, ...flow }) =>
+          Promise.resolve(
+            {
+              [View.Step1]: {
+                [Action.Init]: () => ({
+                  view,
+                  form,
+                }),
+                [Action.Next]: ({ step1: { username } }) =>
+                  Promise.resolve(
+                    update(form, {
+                      username: { $set: username },
+                    })
+                  ).then((form) =>
+                    z
+                      .object({
+                        username: z.string().min(3),
+                      })
+                      .parseAsync(form)
+                      .then(
+                        () => ({
+                          view: View.Step2,
+                          form,
+                        }),
+                        ({ issues: errors }) => ({
+                          view,
+                          form,
+                          errors,
+                        })
+                      )
+                  ),
+              },
+              [View.Step2]: {
+                [Action.Back]: () => ({
+                  view: View.Step1,
+                  form,
+                }),
+                [Action.Next]: ({ step2: { password } }) =>
+                  Promise.resolve(
+                    update(form, {
+                      password: { $set: password },
+                    })
+                  ).then((form) =>
+                    z
+                      .object({
+                        password: z.string().min(3),
+                      })
+                      .parseAsync(form)
+                      .then(
+                        () => ({
+                          view: View.Step3,
+                          form,
+                        }),
+                        ({ issues: errors }) => ({
+                          view,
+                          form,
+                          errors,
+                        })
+                      )
+                  ),
+              },
+            }[view][action](data)
+          ).then(({ view, form, errors }) =>
+            Promise.resolve()
+              .then(() =>
+                Object.assign(storage, {
+                  [flow.uuid]: {
+                    ...flow,
+                    view,
+                    form,
                   },
-          },
-          [Step.Step3]: {
-            [Action.Logout]: () => ({
-              step: Step.Step1,
-              username: "",
-            }),
-          },
-          // @ts-ignore
-        }[step][action](data),
+                })
+              )
+              .then(() => ({ flow, view, errors, ...form }))
+          )
+        ),
     },
   },
 });

@@ -4,10 +4,18 @@ import styles from "./styles.module.scss";
 
 const FormContext = createContext({});
 
-export function Form({ ...props }: { name: string }) {
+export function Form({
+  form,
+  handleChange,
+  handleSubmit,
+  ...props
+}: {
+  children: any;
+}) {
   return (
-    <FormContext.Provider value={{ name }}>
+    <FormContext.Provider value={{ form, handleChange }}>
       <form
+        onSubmit={handleSubmit}
         {...props}
         className={cx(styles.Form)}
         // , data[Step.Step2].errors && styles.invalid
@@ -26,7 +34,7 @@ export function Legend({ ...props }) {
 
 const FieldContext = createContext({});
 
-export function Field({ name, ...props }: { name: string }) {
+export function Field({ name, ...props }: { children: any; name: string }) {
   return (
     <FieldContext.Provider value={{ name }}>
       <div {...props} />
@@ -45,9 +53,15 @@ export function Label({ ...props }) {
 
 export function Input({ ...props }) {
   const { name } = useContext(FieldContext);
+  const { form, handleChange } = useContext(FormContext);
   return (
     <div>
-      <input name={name} {...props} />
+      <input
+        name={name}
+        value={form[name]}
+        onChange={handleChange}
+        {...props}
+      />
     </div>
   );
 }
@@ -60,7 +74,7 @@ export function Errors({ ...props }: { name: string }) {
   );
 }
 
-export function Button({ ...props }: { value: string }) {
+export function Button({ ...props }: { children: any; value: string }) {
   return (
     <div>
       <button type="submit" name="action" {...props} />
