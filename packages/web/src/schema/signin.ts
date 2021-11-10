@@ -63,6 +63,14 @@ export default mergeSchemas({
         step2: LoginStep2Input
       ): LoginFlow
     }
+
+    type CheckUsername {
+      valid: Boolean
+    }
+
+    type Query {
+      checkUsername(username: String): CheckUsername
+    }
   `,
   resolvers: {
     LoginFlow: {
@@ -73,6 +81,16 @@ export default mergeSchemas({
           [View.Step3]: "LoginStep3",
         }[view];
       },
+    },
+    Query: {
+      checkUsername: (_, { username }) =>
+        z
+          .string()
+          .min(5)
+          .safeParseAsync(username)
+          .then(({ success }) => ({
+            valid: success,
+          })),
     },
     Mutation: {
       signin: (
@@ -155,6 +173,12 @@ export default mergeSchemas({
                         })
                       )
                   ),
+              },
+              [View.Step3]: {
+                [Action.Logout]: () => ({
+                  view: View.Step1,
+                  form,
+                }),
               },
             }[view][action](data)
           ).then(({ view, form, errors }) =>

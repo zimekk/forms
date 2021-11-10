@@ -15,6 +15,7 @@ export function Form({
   return (
     <FormContext.Provider value={{ ...data, handleChange }}>
       <form
+        tabIndex={0}
         onSubmit={handleSubmit}
         {...props}
         className={cx(styles.Form)}
@@ -89,9 +90,10 @@ export function Errors({ ...props }) {
 }
 
 export function Button({ ...props }: { children: any; value: string }) {
+  const { busy } = useContext(FormContext);
   return (
     <div>
-      <button type="submit" name="action" {...props} />
+      <button type="submit" name="action" disabled={busy} {...props} />
     </div>
   );
 }
